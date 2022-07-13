@@ -1,3 +1,4 @@
 # TransCNN-HAE
 
-** TransCNN-HAE: Transformer-CNN Hybrid AutoEncoder for Blind Image Inpainting **
+The implementation of the paper "** TransCNN-HAE: Transformer-CNN Hybrid AutoEncoder for Blind Image Inpainting **" will be uploaded soon.
+
