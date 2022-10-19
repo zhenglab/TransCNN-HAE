@@ -1,6 +1,10 @@
 # TransCNN-HAE
 
+<<<<<<< HEAD
 This repository provides the official PyTorch implementation of our paper "TransCNN-HAE: Transformer-CNN Hybrid AutoEncoder for Blind Image Inpainting".
+=======
+The implementation of the paper "TransCNN-HAE: Transformer-CNN Hybrid AutoEncoder for Blind Image Inpainting" will be uploaded soon.
+>>>>>>> 89810b5bfd68eef08a71147af589f60927a4e0ec
 
 Our paper can be found in https://dl.acm.org/doi/pdf/10.1145/3503161.3547848
 
