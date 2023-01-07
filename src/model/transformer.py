@@ -214,7 +214,7 @@ class TransformerEncoderLayer(nn.Module):
         super().__init__()
         # self.self_attn = nn.MultiheadAttention(d_model, nhead, dropout=dropout)
         
-        self.token_mixer = RandomMixing()
+        self.token_mixer = nn.Identity()
         # Implementation of Feedforward model
         self.linear1 = nn.Linear(d_model, dim_feedforward)
         self.dropout = nn.Dropout(dropout)
@@ -266,19 +266,6 @@ class TransformerEncoderLayer(nn.Module):
             return self.forward_pre(src, src_mask, src_key_padding_mask, pos)
         return self.forward_post(src, src_mask, src_key_padding_mask, pos)
 
-
-class RandomMixing(nn.Module):
-    def __init__(self, num_tokens=256):
-        super().__init__()
-        self.random_matrix = nn.parameter.Parameter(
-            data=torch.softmax(torch.rand(4, num_tokens, num_tokens), dim=-1), 
-            requires_grad=False)
-    def forward(self, x):
-        M, B, C = x.shape
-        x = x.reshape(B, M, C)
-        x = torch.bmm(x, self.random_matrix)
-        x = x.reshape(M, B, C)
-        return x
 
         
 class TransformerDecoderLayer(nn.Module):
