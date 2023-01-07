@@ -16,7 +16,7 @@ G_LR: 0.0001
 D_LR: 0.0002
 BETA1: 0.0                    # adam optimizer beta1
 BETA2: 0.9                    # adam optimizer beta2
-BATCH_SIZE: 2                 # input batch size for training
+BATCH_SIZE: 3                 # input batch size for training
 INPUT_SIZE: 256               # input image size for training 0 for original size
 MAX_ITERS: 700000             # maximum number of iterations to train the model
 CENTER: 0
@@ -43,6 +43,6 @@ G2_MUTUAL_LOSS_WEIGHT: 5
 KLD_LOSS_WEIGHT: 0.001
 
 INTERVAL: 1000
-SAMPLE_SIZE: 4                # number of images to sample
+SAMPLE_SIZE: 3                # number of images to sample
 
 SAVE_INTERAL: 100000
