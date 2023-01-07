@@ -212,7 +212,9 @@ class TransformerEncoderLayer(nn.Module):
     def __init__(self, d_model, nhead, dim_feedforward=2048, dropout=0.1,
                  activation="relu", normalize_before=False):
         super().__init__()
-        self.self_attn = nn.MultiheadAttention(d_model, nhead, dropout=dropout)
+        # self.self_attn = nn.MultiheadAttention(d_model, nhead, dropout=dropout)
+        
+        self.token_mixer = RandomMixing()
         # Implementation of Feedforward model
         self.linear1 = nn.Linear(d_model, dim_feedforward)
         self.dropout = nn.Dropout(dropout)
@@ -234,14 +236,12 @@ class TransformerEncoderLayer(nn.Module):
                      src_mask: Optional[Tensor] = None,
                      src_key_padding_mask: Optional[Tensor] = None,
                      pos: Optional[Tensor] = None):
-        q = k = self.with_pos_embed(src, pos)
-        src2 = self.self_attn(q, k, value=src, attn_mask=src_mask,
-                              key_padding_mask=src_key_padding_mask)[0]
-        src = src + self.dropout1(src2)
-        src = self.norm1(src)
+        src = self.with_pos_embed(src, pos)
+        
+        src = src + self.dropout1(self.token_mixer(self.norm1(src)))
+
         src2 = self.linear2(self.dropout(self.activation(self.linear1(src))))
-        src = src + self.dropout2(src2)
-        src = self.norm2(src)
+        src = src + self.dropout2(self.norm2(src2))
         return src
 
     def forward_pre(self, src,
@@ -265,8 +265,22 @@ class TransformerEncoderLayer(nn.Module):
         if self.normalize_before:
             return self.forward_pre(src, src_mask, src_key_padding_mask, pos)
         return self.forward_post(src, src_mask, src_key_padding_mask, pos)
- 
 
+
+class RandomMixing(nn.Module):
+    def __init__(self, num_tokens=256):
+        super().__init__()
+        self.random_matrix = nn.parameter.Parameter(
+            data=torch.softmax(torch.rand(4, num_tokens, num_tokens), dim=-1), 
+            requires_grad=False)
+    def forward(self, x):
+        M, B, C = x.shape
+        x = x.reshape(B, M, C)
+        x = torch.bmm(x, self.random_matrix)
+        x = x.reshape(M, B, C)
+        return x
+
+        
 class TransformerDecoderLayer(nn.Module):
 
     def __init__(self, d_model, nhead, dim_feedforward=2048, dropout=0.1,
