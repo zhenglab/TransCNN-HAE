@@ -214,7 +214,7 @@ class TransformerEncoderLayer(nn.Module):
         super().__init__()
         # self.self_attn = nn.MultiheadAttention(d_model, nhead, dropout=dropout)
         
-        self.token_mixer = nn.Identity()
+        self.token_mixer = SepConv(dim=256)
         # Implementation of Feedforward model
         self.linear1 = nn.Linear(d_model, dim_feedforward)
         self.dropout = nn.Dropout(dropout)
@@ -266,7 +266,52 @@ class TransformerEncoderLayer(nn.Module):
             return self.forward_pre(src, src_mask, src_key_padding_mask, pos)
         return self.forward_post(src, src_mask, src_key_padding_mask, pos)
 
+class StarReLU(nn.Module):
+    """
+    StarReLU: s * relu(x) ** 2 + b
+    """
+    def __init__(self, scale_value=1.0, bias_value=0.0,
+        scale_learnable=True, bias_learnable=True, 
+        mode=None, inplace=False):
+        super().__init__()
+        self.inplace = inplace
+        self.relu = nn.ReLU(inplace=inplace)
+        self.scale = nn.Parameter(scale_value * torch.ones(1),
+            requires_grad=scale_learnable)
+        self.bias = nn.Parameter(bias_value * torch.ones(1),
+            requires_grad=bias_learnable)
+    def forward(self, x):
+        return self.scale * self.relu(x)**2 + self.bias
+    
+    
+class SepConv(nn.Module):
+    """
+    Inverted separable convolution from MobileNetV2: https://arxiv.org/abs/1801.04381.
+    """
+    def __init__(self, dim, expansion_ratio=2,
+        act1_layer=StarReLU, act2_layer=nn.Identity, 
+        bias=False, kernel_size=7, padding=3):
+        super().__init__()
+        med_channels = int(expansion_ratio * dim)
+        self.pwconv1 = nn.Linear(dim, med_channels, bias=bias)
+        self.act1 = act1_layer()
+        self.dwconv = nn.Conv2d(
+            med_channels, med_channels, kernel_size=kernel_size,
+            padding=padding, groups=med_channels, bias=bias) # depthwise conv
+        self.act2 = act2_layer()
+        self.pwconv2 = nn.Linear(med_channels, dim, bias=bias)
 
+    def forward(self, x):
+        x = self.pwconv1(x)
+        x = self.act1(x)
+        x = x.permute(1, 2, 0)
+        B, C, N = x.shape
+        x = x.reshape(B, C, 64, 64)
+        x = self.dwconv(x)
+        x = x.reshape(B, C, N).permute(2, 0, 1)
+        x = self.act2(x)
+        x = self.pwconv2(x)
+        return x
         
 class TransformerDecoderLayer(nn.Module):
 
