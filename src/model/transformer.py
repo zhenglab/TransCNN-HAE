@@ -212,8 +212,7 @@ class TransformerEncoderLayer(nn.Module):
     def __init__(self, d_model, nhead, dim_feedforward=2048, dropout=0.1,
                  activation="relu", normalize_before=False):
         super().__init__()
-        # self.self_attn = nn.MultiheadAttention(d_model, nhead, dropout=dropout)
-        
+        self.self_attn = nn.MultiheadAttention(d_model, nhead, dropout=dropout)
         self.token_mixer = SepConv(dim=256)
         # Implementation of Feedforward model
         self.linear1 = nn.Linear(d_model, dim_feedforward)
@@ -236,12 +235,16 @@ class TransformerEncoderLayer(nn.Module):
                      src_mask: Optional[Tensor] = None,
                      src_key_padding_mask: Optional[Tensor] = None,
                      pos: Optional[Tensor] = None):
-        src = self.with_pos_embed(src, pos)
+        src2 = self.norm1(src)
+        pos_o = self.with_pos_embed(src2, pos)
+        q = k = self.token_mixer(pos_o)
         
-        src = src + self.dropout1(self.token_mixer(self.norm1(src)))
-
-        src2 = self.linear2(self.dropout(self.activation(self.linear1(src))))
-        src = src + self.dropout2(self.norm2(src2))
+        src2 = self.self_attn(q, k, value=src2, attn_mask=src_mask,
+                              key_padding_mask=src_key_padding_mask)[0]
+        src = src + self.dropout1(src2)
+        src2 = self.norm2(src)
+        src2 = self.linear2(self.dropout(self.activation(self.linear1(src2))))
+        src = src + self.dropout2(src2)
         return src
 
     def forward_pre(self, src,
