@@ -57,11 +57,11 @@ class HTGenerator(nn.Module):
 
     def forward(self, inputs):
         patch_embedding = self.patch_to_embedding(inputs)
-        content = self.transformer_enc(patch_embedding.permute(1, 0, 2), src_pos=self.input_pos)
+        content, fea = self.transformer_enc(patch_embedding.permute(1, 0, 2), src_pos=self.input_pos)
         bs, L, C  = patch_embedding.size()
         content = content.permute(1,2,0).view(bs, C, int(math.sqrt(L)), int(math.sqrt(L)))
         output = self.dec(content)
-        return output, content
+        return output, fea
 
 
 class ContentDecoder(nn.Module):

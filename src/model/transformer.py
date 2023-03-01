@@ -13,7 +13,8 @@ from typing import Optional, List
 import torch
 import torch.nn.functional as F
 from torch import nn, Tensor
-
+import math
+torch.backends.cudnn.enabled = False
 
 class Transformer(nn.Module):
 
@@ -88,8 +89,8 @@ class TransformerEncoders(nn.Module):
         # src = src.flatten(2).permute(2, 0, 1)
         # pos_embed = pos_embed.flatten(2).permute(2, 0, 1)
 
-        memory = self.encoder(src, pos=src_pos, src_key_padding_mask=src_key_padding_mask)
-        return memory
+        memory, token_m = self.encoder(src, pos=src_pos, src_key_padding_mask=src_key_padding_mask)
+        return memory, token_m
 
 class TransformerDecoders(nn.Module):
     
@@ -133,41 +134,19 @@ class TransformerEncoder(nn.Module):
         self.layers = _get_clones(encoder_layer, num_layers)
         self.num_layers = num_layers
         self.norm = norm
-        self.correlation = Correlation()
     def forward(self, src,
                 mask: Optional[Tensor] = None,
                 src_key_padding_mask: Optional[Tensor] = None,
                 pos: Optional[Tensor] = None):
         output = src
         for layer in self.layers:
-            output = layer(output, src_mask=mask,
+            output, token_m = layer(output, src_mask=mask,
                            src_key_padding_mask=src_key_padding_mask, pos=pos)
         if self.norm is not None:
             output = self.norm(output)
 
-        return output
+        return output, token_m
 
-
-class Correlation(nn.Module):
-
-    def __init__(self):
-        super().__init__()
-        self.sigmoid = nn.Sigmoid()
-        self.linear = nn.Linear(256+1, 256)
-
-    def forward(self, fea_pred, fea_later): 
-        fea_ori = fea_later
-        fea_pred = F.normalize(fea_pred, dim=2)
-        fea_later = F.normalize(fea_later, dim=2)
-        dis = torch.bmm(fea_pred.permute(1, 0, 2), fea_later.permute(1, 2, 0))
-        dis = torch.diagonal(dis, dim1=1,dim2=2).unsqueeze(-1)
-        dis = 1 - dis
-        dis_new = torch.cat((fea_ori, dis.permute(1, 0, 2)), dim=2)
-        dis_new = self.linear(dis_new)
-        weights = self.sigmoid(dis_new)
-        out = fea_ori * weights + fea_ori
-        
-        return out, [fea_ori.permute(1, 2, 0).view(-1, 256, 64, 64), (fea_ori * weights).permute(1, 2, 0).view(-1, 256, 64, 64), weights.permute(1, 2, 0).view(-1, 256, 64, 64), out.permute(1, 2, 0).view(-1, 256, 64, 64)]
 
 class TransformerDecoder(nn.Module):
 
@@ -213,16 +192,14 @@ class TransformerEncoderLayer(nn.Module):
                  activation="relu", normalize_before=False):
         super().__init__()
         self.self_attn = nn.MultiheadAttention(d_model, nhead, dropout=dropout)
-        self.token_mixer = SepConv(dim=256)
         # Implementation of Feedforward model
-        self.linear1 = nn.Linear(d_model, dim_feedforward)
-        self.dropout = nn.Dropout(dropout)
-        self.linear2 = nn.Linear(dim_feedforward, d_model)
-
+        self.incre = TokenMixer()
         self.norm1 = nn.LayerNorm(d_model)
         self.norm2 = nn.LayerNorm(d_model)
         self.dropout1 = nn.Dropout(dropout)
         self.dropout2 = nn.Dropout(dropout)
+        
+        self.ffn = FeedForwardNetwork(dim=d_model)
 
         self.activation = _get_activation_fn(activation)
         self.normalize_before = normalize_before
@@ -235,17 +212,16 @@ class TransformerEncoderLayer(nn.Module):
                      src_mask: Optional[Tensor] = None,
                      src_key_padding_mask: Optional[Tensor] = None,
                      pos: Optional[Tensor] = None):
-        src2 = self.norm1(src)
-        pos_o = self.with_pos_embed(src2, pos)
-        q = k = self.token_mixer(pos_o)
-        
-        src2 = self.self_attn(q, k, value=src2, attn_mask=src_mask,
+        [N, B, C] = src.shape
+        q = k = self.with_pos_embed(src, pos)
+        src2 = self.self_attn(q, k, value=src, attn_mask=src_mask,
                               key_padding_mask=src_key_padding_mask)[0]
-        src = src + self.dropout1(src2)
-        src2 = self.norm2(src)
-        src2 = self.linear2(self.dropout(self.activation(self.linear1(src2))))
-        src = src + self.dropout2(src2)
-        return src
+        incre = self.incre(src, src2)
+        src = src + self.dropout1(incre)
+        src = self.norm1(src)
+        src = src + self.ffn(src)
+        src = self.norm2(src)
+        return src, [src2.permute(1, 2, 0).view(B, C, 64, 64), incre.permute(1, 2, 0).view(B, C, 64, 64)]
 
     def forward_pre(self, src,
                     src_mask: Optional[Tensor] = None,
@@ -268,36 +244,33 @@ class TransformerEncoderLayer(nn.Module):
         if self.normalize_before:
             return self.forward_pre(src, src_mask, src_key_padding_mask, pos)
         return self.forward_post(src, src_mask, src_key_padding_mask, pos)
-
-class StarReLU(nn.Module):
-    """
-    StarReLU: s * relu(x) ** 2 + b
-    """
-    def __init__(self, scale_value=1.0, bias_value=0.0,
-        scale_learnable=True, bias_learnable=True, 
-        mode=None, inplace=False):
+ 
+class TokenMixer(nn.Module):
+    def __init__(self):
         super().__init__()
-        self.inplace = inplace
-        self.relu = nn.ReLU(inplace=inplace)
-        self.scale = nn.Parameter(scale_value * torch.ones(1),
-            requires_grad=scale_learnable)
-        self.bias = nn.Parameter(bias_value * torch.ones(1),
-            requires_grad=bias_learnable)
-    def forward(self, x):
-        return self.scale * self.relu(x)**2 + self.bias
-    
-    
-class SepConv(nn.Module):
+        self.sigmoid = nn.Sigmoid() 
+        
+    def forward(self, x_pre, x_pos):
+        [N, B, C] = x_pre.shape
+        fea_pred = F.normalize(x_pre, dim=2)
+        fea_later = F.normalize(x_pos, dim=2)
+        dis = torch.bmm(fea_pred.permute(1, 0, 2), fea_later.permute(1, 2, 0))
+        dis = torch.diagonal(dis, dim1=1, dim2=2).unsqueeze(-1)
+        weight = self.sigmoid(dis)
+        weight = 1 - weight
+        out = x_pos + x_pos * weight.unsqueeze(1).reshape(N, B, 1)
+        return out
+
+class FeedForwardNetwork(nn.Module):
     """
     Inverted separable convolution from MobileNetV2: https://arxiv.org/abs/1801.04381.
     """
-    def __init__(self, dim, expansion_ratio=2,
-        act1_layer=StarReLU, act2_layer=nn.Identity, 
+    def __init__(self, dim, expansion_ratio=2, act2_layer=nn.Identity, 
         bias=False, kernel_size=7, padding=3):
         super().__init__()
         med_channels = int(expansion_ratio * dim)
         self.pwconv1 = nn.Linear(dim, med_channels, bias=bias)
-        self.act1 = act1_layer()
+        self.act1 = nn.GELU()
         self.dwconv = nn.Conv2d(
             med_channels, med_channels, kernel_size=kernel_size,
             padding=padding, groups=med_channels, bias=bias) # depthwise conv
@@ -315,7 +288,8 @@ class SepConv(nn.Module):
         x = self.act2(x)
         x = self.pwconv2(x)
         return x
-        
+
+    
 class TransformerDecoderLayer(nn.Module):
 
     def __init__(self, d_model, nhead, dim_feedforward=2048, dropout=0.1,
@@ -490,3 +464,4 @@ class TransformerPatchDecoders(nn.Module):
         hs = self.decoder(tgt, src, memory_key_padding_mask=mask,
                           pos=pos_embed, query_pos=query_embed)
         return hs.permute(1, 2, 0).view(bs, c, h, w)
+

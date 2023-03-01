@@ -35,7 +35,6 @@ def main(mode=None):
     random.seed(config.SEED)
 
     model = ImagineGAN(config)
-
     model.load()
 
     if config.MODE == 1:

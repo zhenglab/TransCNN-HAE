@@ -7,7 +7,7 @@ from config import Config
 import torch
 os.environ['CUDA_VISIBLE_DEVICES'] = '0'
 
-config_path = os.path.join('/data2/zhaohaoru/code/blind_trans/checkpoints/ffhq_0209_kernal35', 'config.yml')
+config_path = os.path.join('/data/zhr/code/TransCNN/checkpoints/ffhq_0227_notokenmixer', 'config.yml')
 
 # load config file
 config = Config(config_path)
