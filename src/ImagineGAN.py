@@ -122,7 +122,7 @@ class ImagineGAN():
                     if self.config.SAVE_INTERAL and ite % self.config.SAVE_INTERAL == 0:
                         self.save(ite=ite)
 
-                    if ite >= 400000 and ite % 10000 == 0:
+                    if ite >= 500000 and ite % 10000 == 0:
                         self.save(ite=ite)
 
         print('\nEnd trainging...')

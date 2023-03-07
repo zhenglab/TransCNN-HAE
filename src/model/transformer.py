@@ -258,7 +258,7 @@ class TokenMixer(nn.Module):
         dis = torch.diagonal(dis, dim1=1, dim2=2).unsqueeze(-1)
         weight = self.sigmoid(dis)
         weight = 1 - weight
-        out = x_pos + x_pos * weight.unsqueeze(1).reshape(N, B, 1)
+        out = x_pos * weight.unsqueeze(1).reshape(N, B, 1)
         return out
 
 class FeedForwardNetwork(nn.Module):
