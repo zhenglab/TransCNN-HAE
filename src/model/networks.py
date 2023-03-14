@@ -45,7 +45,7 @@ class HTGenerator(nn.Module):
         self.config = config
         self.patch_to_embedding = nn.Sequential(
             Rearrange('b c (h p1) (w p2) -> b (h w) (p1 p2 c)', p1 = 4, p2 = 4),
-            nn.Linear(4*4*3, dim)
+            nn.Linear(4*4*4, dim)
         )
         self.transformer_enc = transformer.TransformerEncoders(dim, nhead=2, num_encoder_layers=9, dim_feedforward=dim*2, activation='gelu')
         self.dec = ContentDecoder(256, 3, 'ln', 'lrelu', 'reflect')

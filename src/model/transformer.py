@@ -9,7 +9,7 @@ Copy-paste from torch.nn.Transformer with modifications:
 """
 import copy
 from typing import Optional, List
-
+from einops.layers.torch import Rearrange
 import torch
 import torch.nn.functional as F
 from torch import nn, Tensor
@@ -193,7 +193,7 @@ class TransformerEncoderLayer(nn.Module):
         super().__init__()
         self.self_attn = nn.MultiheadAttention(d_model, nhead, dropout=dropout)
         # Implementation of Feedforward model
-        self.incre = TokenMixer()
+        self.incres = TokenMixer()
         self.norm1 = nn.LayerNorm(d_model)
         self.norm2 = nn.LayerNorm(d_model)
         self.dropout1 = nn.Dropout(dropout)
@@ -216,12 +216,11 @@ class TransformerEncoderLayer(nn.Module):
         q = k = self.with_pos_embed(src, pos)
         src2 = self.self_attn(q, k, value=src, attn_mask=src_mask,
                               key_padding_mask=src_key_padding_mask)[0]
-        incre = self.incre(src, src2)
-        src = src + self.dropout1(incre)
+        src = src + self.dropout1(src2)
         src = self.norm1(src)
         src = src + self.ffn(src)
         src = self.norm2(src)
-        return src, [src2.permute(1, 2, 0).view(B, C, 64, 64), incre.permute(1, 2, 0).view(B, C, 64, 64)]
+        return src, [src2.permute(1, 2, 0).view(B, C, 64, 64), src.permute(1, 2, 0).view(B, C, 64, 64)]
 
     def forward_pre(self, src,
                     src_mask: Optional[Tensor] = None,
@@ -288,8 +287,8 @@ class FeedForwardNetwork(nn.Module):
         x = self.act2(x)
         x = self.pwconv2(x)
         return x
+ 
 
-    
 class TransformerDecoderLayer(nn.Module):
 
     def __init__(self, d_model, nhead, dim_feedforward=2048, dropout=0.1,
