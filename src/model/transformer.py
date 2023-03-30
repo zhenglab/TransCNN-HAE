@@ -58,8 +58,8 @@ class Transformer(nn.Module):
         tgt = tgt.flatten(2).permute(2, 0, 1)
         hs = self.decoder(tgt, memory, memory_key_padding_mask=mask,
                           pos=pos_embed, query_pos=query_embed)
-        return hs.permute(1, 2, 0).view(bs, c, h, w), memory.permute(1, 2, 0).view(bs, c, h, w)
-        # return memory.permute(1, 2, 0).view(bs, c, h, w), memory.permute(1, 2, 0).view(bs, c, h, w)
+        return hs.permute(1, 2, 0).reshape(bs, c, h, w), memory.permute(1, 2, 0).reshape(bs, c, h, w)
+        # return memory.permute(1, 2, 0).reshape(bs, c, h, w), memory.permute(1, 2, 0).reshape(bs, c, h, w)
 
 class TransformerEncoders(nn.Module):
     
@@ -125,7 +125,7 @@ class TransformerDecoders(nn.Module):
         hs = self.decoder(tgt, src, memory_key_padding_mask=src_key_padding_mask, tgt_key_padding_mask=tgt_key_padding_mask,
                           pos=src_pos, query_pos=tgt_pos)
         return hs
-        # return hs.permute(1, 2, 0).view(bs, c, h, w)
+        # return hs.permute(1, 2, 0).reshape(bs, c, h, w)
 
 class TransformerEncoder(nn.Module):
 
@@ -192,8 +192,8 @@ class TransformerEncoderLayer(nn.Module):
                  activation="relu", normalize_before=False):
         super().__init__()
         self.self_attn = nn.MultiheadAttention(d_model, nhead, dropout=dropout)
+        # self.token_mixer = TokenMixer()
         # Implementation of Feedforward model
-        self.incres = TokenMixer()
         self.norm1 = nn.LayerNorm(d_model)
         self.norm2 = nn.LayerNorm(d_model)
         self.dropout1 = nn.Dropout(dropout)
@@ -216,11 +216,13 @@ class TransformerEncoderLayer(nn.Module):
         q = k = self.with_pos_embed(src, pos)
         src2 = self.self_attn(q, k, value=src, attn_mask=src_mask,
                               key_padding_mask=src_key_padding_mask)[0]
+        # incre = self.token_mixer(src, src2)
         src = src + self.dropout1(src2)
         src = self.norm1(src)
-        src = src + self.ffn(src)
+        ffn_o, fea = self.ffn(src)
+        src = src + ffn_o
         src = self.norm2(src)
-        return src, [src2.permute(1, 2, 0).view(B, C, 64, 64), src.permute(1, 2, 0).view(B, C, 64, 64)]
+        return src, [src2.permute(1, 2, 0).reshape(B, -1, 64, 64), ffn_o.permute(1, 2, 0).reshape(B, -1, 64, 64)]
 
     def forward_pre(self, src,
                     src_mask: Optional[Tensor] = None,
@@ -243,7 +245,7 @@ class TransformerEncoderLayer(nn.Module):
         if self.normalize_before:
             return self.forward_pre(src, src_mask, src_key_padding_mask, pos)
         return self.forward_post(src, src_mask, src_key_padding_mask, pos)
- 
+    
 class TokenMixer(nn.Module):
     def __init__(self):
         super().__init__()
@@ -259,7 +261,7 @@ class TokenMixer(nn.Module):
         weight = 1 - weight
         out = x_pos * weight.unsqueeze(1).reshape(N, B, 1)
         return out
-
+ 
 class FeedForwardNetwork(nn.Module):
     """
     Inverted separable convolution from MobileNetV2: https://arxiv.org/abs/1801.04381.
@@ -267,27 +269,101 @@ class FeedForwardNetwork(nn.Module):
     def __init__(self, dim, expansion_ratio=2, act2_layer=nn.Identity, 
         bias=False, kernel_size=7, padding=3):
         super().__init__()
+        self.window_size = 32
         med_channels = int(expansion_ratio * dim)
+        self.local_mixing = Local_Mixing(dim=dim)
+        self.dwconv = nn.Conv2d(
+                    dim, dim, kernel_size=kernel_size,
+                    padding=padding, groups=dim, bias=bias) 
+        self.norm = nn.LayerNorm(dim, eps=1e-6)
         self.pwconv1 = nn.Linear(dim, med_channels, bias=bias)
         self.act1 = nn.GELU()
-        self.dwconv = nn.Conv2d(
-            med_channels, med_channels, kernel_size=kernel_size,
-            padding=padding, groups=med_channels, bias=bias) # depthwise conv
-        self.act2 = act2_layer()
         self.pwconv2 = nn.Linear(med_channels, dim, bias=bias)
-
+        
     def forward(self, x):
+        [N, B, C] = x.shape
+        x = x.permute(1, 0, 2).reshape(B, 64, 64, -1)
+        x_windows = window_partition(x, self.window_size)
+        x_windows = x_windows.reshape(-1, self.window_size * self.window_size, C).permute(0, 2, 1)
+
+        corr_windows, sed_windows = self.local_mixing(x_windows)
+
+        x_windows = corr_windows.permute(0, 2, 1).reshape(-1, self.window_size, self.window_size, C)
+        
+        fea_cat = window_reverse(x_windows, self.window_size, 64, 64)
+        
+        fea = fea_cat.permute(0, 3, 1, 2)
+        
+        x = self.dwconv(fea)
+        x = x.permute(2, 3, 0, 1).reshape(N, B, C)
+        
+        x = self.norm(x)
         x = self.pwconv1(x)
         x = self.act1(x)
-        x = x.permute(1, 2, 0)
-        B, C, N = x.shape
-        x = x.reshape(B, C, 64, 64)
-        x = self.dwconv(x)
-        x = x.reshape(B, C, N).permute(2, 0, 1)
-        x = self.act2(x)
         x = self.pwconv2(x)
-        return x
- 
+        return x, fea_cat
+    
+    
+class Local_Mixing(nn.Module):
+
+    def __init__(self, dim):
+        super().__init__()
+        self.softmax = nn.Softmax(dim=-1) #
+        self.linear = nn.Linear(dim*2, 2, bias=False)
+
+    def forward(self, x):
+        [B, C, N] = x.shape
+        q = k = x
+        matmul = torch.bmm(q.permute(0, 2, 1), k) # transpose check
+        q_abs = torch.sqrt(torch.sum(q.pow(2) + 1e-6, dim=1, keepdim=True))
+        k_abs = torch.sqrt(torch.sum(k.pow(2) + 1e-6, dim=1, keepdim=True))
+        abs_matmul = torch.bmm(q_abs.permute(0, 2, 1), k_abs)
+        io_abs = matmul / abs_matmul
+
+        f_re = torch.zeros(x.shape).cuda()
+        for i in range(B):
+
+            abs = io_abs[i].fill_diagonal_(0)
+            _map=torch.argmax(abs, dim=1)
+
+            f_re[i, :, :] = x[i, :, _map]
+        
+        fus = torch.cat((x, f_re), dim=1)
+        fus = fus.permute(0, 2, 1)
+        weight = self.linear(fus)
+        weight = self.softmax(weight)
+        weight = weight.permute(0, 2, 1)
+        out = x * weight[:, 0:1, :] + f_re * weight[:, 1:2, :]
+            
+        return out, f_re
+    
+def window_partition(x, window_size):
+    """
+    Args:
+        x: (B, H, W, C)
+        window_size (int): window size
+    Returns:
+        windows: (num_windows*B, window_size, window_size, C)
+    """
+    B, H, W, C = x.shape
+    x = x.view(B, H // window_size, window_size, W // window_size, window_size, C)
+    windows = x.permute(0, 1, 3, 2, 4, 5).contiguous().view(-1, window_size, window_size, C)
+    return windows
+
+def window_reverse(windows, window_size, H, W):
+    """
+    Args:
+        windows: (num_windows*B, window_size, window_size, C)
+        window_size (int): Window size
+        H (int): Height of image
+        W (int): Width of image
+    Returns:
+        x: (B, H, W, C)
+    """
+    B = int(windows.shape[0] / (H * W / window_size / window_size))
+    x = windows.view(B, H // window_size, W // window_size, window_size, window_size, -1)
+    x = x.permute(0, 1, 3, 2, 4, 5).contiguous().view(B, H, W, -1)
+    return x
 
 class TransformerDecoderLayer(nn.Module):
 
@@ -462,5 +538,5 @@ class TransformerPatchDecoders(nn.Module):
         tgt = tgt.flatten(2).permute(2, 0, 1)
         hs = self.decoder(tgt, src, memory_key_padding_mask=mask,
                           pos=pos_embed, query_pos=query_embed)
-        return hs.permute(1, 2, 0).view(bs, c, h, w)
+        return hs.permute(1, 2, 0).reshape(bs, c, h, w)
 
