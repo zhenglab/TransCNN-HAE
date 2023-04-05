@@ -192,7 +192,7 @@ class TransformerEncoderLayer(nn.Module):
                  activation="relu", normalize_before=False):
         super().__init__()
         self.self_attn = nn.MultiheadAttention(d_model, nhead, dropout=dropout)
-        # self.token_mixer = TokenMixer()
+        self.token_mixer = TokenMixer()
         # Implementation of Feedforward model
         self.norm1 = nn.LayerNorm(d_model)
         self.norm2 = nn.LayerNorm(d_model)
@@ -216,8 +216,8 @@ class TransformerEncoderLayer(nn.Module):
         q = k = self.with_pos_embed(src, pos)
         src2 = self.self_attn(q, k, value=src, attn_mask=src_mask,
                               key_padding_mask=src_key_padding_mask)[0]
-        # incre = self.token_mixer(src, src2)
-        src = src + self.dropout1(src2)
+        incre = self.token_mixer(src, src2)
+        src = src + self.dropout1(incre)
         src = self.norm1(src)
         ffn_o, fea = self.ffn(src)
         src = src + ffn_o

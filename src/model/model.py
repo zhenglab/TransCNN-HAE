@@ -31,11 +31,11 @@ class BaseModel(nn.Module):
 
     def save(self, ite=None):
         print('\nSaving %s...\n' % self.name)
-        if ite is not None and torch.distributed.get_rank() == 0:
+        if ite is not None:
             torch.save({
                 'iteration': self.iteration,
                 'params': self.g.state_dict()}, self.imagine_g_weights_path + '_' + str(ite))
-        if ite is None and torch.distributed.get_rank() == 0:
+        else:
             torch.save({
                 'iteration': self.iteration,
                 'params': self.g.state_dict()}, self.imagine_g_weights_path)
@@ -44,10 +44,8 @@ class Network(BaseModel):
     def __init__(self, config):
         super(Network, self).__init__('Network', config)
         
-        g = HTGenerator(config).to(config.DEVICE) 
-        if len(self.config.GPU) > 1:
-            g = torch.nn.parallel.DistributedDataParallel(g, device_ids=[config.local_rank], output_device=config.local_rank, 
-                                                          find_unused_parameters=True)
+        g = HTGenerator(config)
+
         l1_loss = nn.L1Loss()
         content_loss = PerceptualLoss()
 
