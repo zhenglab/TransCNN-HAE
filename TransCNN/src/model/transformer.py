@@ -59,13 +59,16 @@ class TransformerEncoder(nn.Module):
                 src_key_padding_mask: Optional[Tensor] = None,
                 pos: Optional[Tensor] = None):
         output = src
+        outputs = []
         for layer in self.layers:
-            output, token_m = layer(output, src_mask=mask,
+            outputs.append(output)
+            output, tokenm = layer(output, src_mask=mask,
                            src_key_padding_mask=src_key_padding_mask, pos=pos)
+            output, fea = self.correlation(outputs[-1], output) 
         if self.norm is not None:
             output = self.norm(output)
 
-        return output, token_m
+        return output, tokenm
 
 
 class Correlation(nn.Module):
