@@ -45,7 +45,7 @@ class ImagineGAN():
             dataset=self.train_dataset,
             batch_size=self.config.BATCH_SIZE,
             num_workers=4,
-            drop_last=False,
+            drop_last=True,
             shuffle=True,
             pin_memory=True
         )
@@ -150,7 +150,7 @@ class ImagineGAN():
             data, pdata, mask = self.cuda(*it)
 
             output, fea = self.Model(pdata)
-            
+            output = output * mask + data * (1-mask)
 
             data = self.postprocess_re(data)[0]
             pdata = self.postprocess_re(pdata)[0]
@@ -197,22 +197,11 @@ class ImagineGAN():
         data, pdata, mask = self.cuda(*its)
         
         output, fea  = self.Model(pdata)
-        up = nn.Upsample(size=(256,256), mode='bilinear', align_corners=False)
-        fea0 = torch.cat([torch.mean(fea[0], 1, True)]*3, dim=1)
-        fea0 = (fea0-torch.min(fea0))/(torch.max(fea0)-torch.min(fea0))
-        fea0 = up(fea0)
 
-        fea1 = torch.cat([torch.mean(fea[1], 1, True)]*3, dim=1)
-        fea1 = (fea1-torch.min(fea1))/(torch.max(fea1)-torch.min(fea1))
-        fea1 = up(fea1)
-        
-       
         # draw sample image
         image_per_row = 1
         images = stitch_images(
             self.postprocess_re(pdata),
-            self.postprocess_re(fea0), 
-            self.postprocess_re(fea1),    
             self.postprocess_re(output),
             self.postprocess_re(data),
             img_per_row = image_per_row

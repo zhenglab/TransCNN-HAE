@@ -95,6 +95,8 @@ class Dataset(torch.utils.data.Dataset):
         if len(noise.shape) == 2:
             noise = noise[:, :, np.newaxis]
             noise = noise.repeat(4, axis=2) 
+        if noise.shape[2] == 4:
+            noise = noise[:, :, 0:3] 
 
         data = self.resize(data, self.input_size, self.input_size)
         mask = self.resize(mask, self.input_size, self.input_size)
@@ -121,18 +123,14 @@ class Dataset(torch.utils.data.Dataset):
         if len(noise.shape) == 2:
             noise = noise[:, :, np.newaxis]
             noise = noise.repeat(4, axis=2)   
-    
-
+        if noise.shape[2] == 4:
+            noise = noise[:, :, 0:3] 
+                        
         data = cv2.resize(data, (self.input_size, self.input_size))
         noise = cv2.resize(noise, (self.input_size, self.input_size))
         mask = imread(self.mask_file[index])
         mask = cv2.resize(mask, (self.input_size, self.input_size))
 
-        if noise.shape[2] == 3:
-            noise_0 = noise[:, :, 0:1] 
-            
-            noise = np.concatenate([noise,noise_0], axis=2)
-        
         h, w = data.shape[:2]
         grid = 4
         data = data[:h // grid * grid, :w // grid * grid, :]
