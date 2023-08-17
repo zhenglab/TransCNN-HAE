@@ -296,7 +296,6 @@ class FeedForwardNetwork(nn.Module):
         
         x = self.dwconv(fea)
         x = x.permute(2, 3, 0, 1).reshape(N, B, C)
-        
         x = self.norm(x)
         x = self.pwconv1(x)
         x = self.act1(x)
@@ -309,7 +308,7 @@ class Local_Mixing(nn.Module):
     def __init__(self, dim):
         super().__init__()
         self.softmax = nn.Softmax(dim=-1) #
-        self.linear = nn.Linear(dim*2, 2, bias=False)
+        self.linear = nn.Linear(1024, 1, bias=False)
 
     def forward(self, x):
         [B, C, N] = x.shape
@@ -328,13 +327,11 @@ class Local_Mixing(nn.Module):
 
             f_re[i, :, :] = x[i, :, _map]
         
-        fus = torch.cat((x, f_re), dim=1)
-        fus = fus.permute(0, 2, 1)
+        fus = x + f_re # 16, 256, 1024
+        # fus = fus.permute(0, 2, 1)  # 16, 1024, 256
         weight = self.linear(fus)
         weight = self.softmax(weight)
-        weight = weight.permute(0, 2, 1)
-        out = x * weight[:, 0:1, :] + f_re * weight[:, 1:2, :]
-            
+        out = fus * weight
         return out, f_re
     
 def window_partition(x, window_size):

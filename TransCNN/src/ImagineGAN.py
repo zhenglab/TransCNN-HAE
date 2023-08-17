@@ -20,8 +20,8 @@ class ImagineGAN():
   
         self.psnr = PSNR(255.0).to(config.DEVICE)
 
-        self.train_dataset = Dataset(config, config.TRAIN_FLIST, config.NOISE_TRAIN_FLIST,noise_aux=config.NOISE_TRAIN_AUX, mask_flist=config.MASK_TRAIN_FLIST, batchsize=config.BATCH_SIZE, augment=False, training=True)
-        self.val_dataset = Dataset(config, config.VAL_FLIST, config.NOISE_VAL_FLIST, mask_flist=config.MASK_TEST_FLIST, batchsize=2, augment=False, training=False)
+        self.train_dataset = Dataset(config, config.TRAIN_FLIST, config.NOISE_TRAIN_FLIST,noise_aux=config.NOISE_TRAIN_AUX, mask_flist=config.MASK_FLIST, batchsize=config.BATCH_SIZE, augment=False, training=True)
+        self.val_dataset = Dataset(config, config.VAL_FLIST, config.NOISE_VAL_FLIST, mask_flist=config.MASK_FLIST, batchsize=2, augment=False, training=False)
         self.sample_iterator = self.val_dataset.create_iterator(config.SAMPLE_SIZE)
 
         self.val_iterator = config.VAL_ITERS

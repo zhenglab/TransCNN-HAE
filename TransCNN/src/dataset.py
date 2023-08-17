@@ -49,8 +49,8 @@ class Dataset(torch.utils.data.Dataset):
             np.random.shuffle(self.noise_file)
 
         self.mask_type = config.MASK_TYPE
-
-        self.mask_file = getFileList(mask_flist)
+        if self.training == False:
+            self.mask_file = getFileList(mask_flist)
         self.side = config.SIDE
         self.mean = config.MEAN
         self.std = config.STD
@@ -87,49 +87,75 @@ class Dataset(torch.utils.data.Dataset):
     
     def load_train_item(self, index):
         data = imread(self.data_file[index])
-        noise = imread(self.noise_file[index])
-        mask = imread(self.mask_file[index])  
+        if self.count == 0:
+            self.noise = imread(self.noise_file[index])
+            if self.mask_type == 'freeform':
+                self.mask = free_form_mask(h=self.input_size, w=self.input_size)
+            if self.mask_type == 'rect':
+                self.mask = generate_rectangle(h=self.input_size, w=self.input_size)
+            if self.mask_type == 'irregular':
+                self.mask = Masks(h=self.input_size, w=self.input_size)
+            self.coin = torch.rand(1)[0]
+        
+        self.seq = index
+            
         if len(data.shape) == 2:
             data = data[:, :, np.newaxis]
             data = data.repeat(3, axis=2)
-        if len(noise.shape) == 2:
-            noise = noise[:, :, np.newaxis]
-            noise = noise.repeat(4, axis=2) 
-        if noise.shape[2] == 4:
-            noise = noise[:, :, 0:3] 
+            
+        if data.shape[2] == 4:
+            data = data[:, :, 0:3]
 
         data = self.resize(data, self.input_size, self.input_size)
-        mask = self.resize(mask, self.input_size, self.input_size)
-        noise = self.resize(noise, self.input_size, self.input_size)
+        # mask = self.resize(mask, self.input_size, self.input_size)
         
-        mask_tensor = self.mask_tensor(mask)
+        self.count += 1
+        if self.count == self.batchsize:
+            self.count = 0
 
+        mask = self.mask
+        noise = self.noise
+
+        if len(noise.shape) == 2:
+            noise = noise[:, :, np.newaxis]
+            noise = noise.repeat(3, axis=2) 
+
+        noise = self.resize(noise, self.input_size, self.input_size)
+        mask_tensor = self.mask_tensor(mask)
+        mask_soft = self.priority_mask(1 - mask_tensor) + mask_tensor
+        mask_soft = torch.squeeze(mask_soft, dim=0)
+
+        coin = self.coin
+
+        mask_used = mask_soft
 
         if self.augment and np.random.binomial(1, 0.5) > 0:
             data = data[:, ::-1, ...]
 
         data = self.to_tensor(data)
         noise = self.to_tensor(noise)
-        input_data = noise
+
+        input_data = data * (1 - mask_used) + noise * mask_used
 
         return data, input_data, mask_tensor
 
     def load_test_item(self, index): 
         data = imread(self.data_file[index])
         noise = imread(self.noise_file[index])
+        
         if len(data.shape) == 2:
             data = data[:, :, np.newaxis]
             data = data.repeat(3, axis=2)
+            
+        if data.shape[2] == 4:
+            data = data[:, :, 0:3]
+            
         if len(noise.shape) == 2:
             noise = noise[:, :, np.newaxis]
-            noise = noise.repeat(4, axis=2)   
-        if noise.shape[2] == 4:
-            noise = noise[:, :, 0:3] 
-                        
+            noise = noise.repeat(3, axis=2)   
         data = cv2.resize(data, (self.input_size, self.input_size))
         noise = cv2.resize(noise, (self.input_size, self.input_size))
         mask = imread(self.mask_file[index])
-        mask = cv2.resize(mask, (self.input_size, self.input_size))
 
         h, w = data.shape[:2]
         grid = 4
@@ -145,7 +171,7 @@ class Dataset(torch.utils.data.Dataset):
         data = self.to_tensor(data)
         noise = self.to_tensor(noise)
 
-        input_data = noise       
+        input_data = data * (1 - mask_used) + noise * mask_used        
         return data, input_data, mask_tensor 
 
     def pollute_load_item(self, index):
