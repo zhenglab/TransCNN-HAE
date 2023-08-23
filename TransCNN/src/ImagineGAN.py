@@ -150,7 +150,7 @@ class ImagineGAN():
             data, pdata, mask = self.cuda(*it)
 
             output, fea = self.Model(pdata)
-            output = output * mask + data * (1-mask)
+            # output = output * mask + data * (1-mask)
 
             data = self.postprocess_re(data)[0]
             pdata = self.postprocess_re(pdata)[0]

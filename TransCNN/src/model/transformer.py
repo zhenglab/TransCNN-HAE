@@ -301,7 +301,7 @@ class FeedForwardNetwork(nn.Module):
         x = self.act1(x)
         x = self.pwconv2(x)
         return x, fea_cat
-    
+
     
 class Local_Mixing(nn.Module):
 
@@ -319,13 +319,16 @@ class Local_Mixing(nn.Module):
         
         f_re = torch.bmm(v, disk)
 
-        fus = torch.cat((x, f_re), dim=1)
+        fus = torch.cat((f_re, x), dim=1)
         weight = self.linear(fus.permute(0, 2, 1))
         weight = self.sigmoid(weight)
-
+        # print(weight.shape, f_re.shape)
         out = f_re * weight.permute(0, 2, 1)
         return out, f_re
-    
+
+
+
+
 def window_partition(x, window_size):
     """
     Args:
