@@ -1,8 +1,7 @@
-# TransCNN-HAE
+# TransCNN-HAE+
 
-This repository provides the official PyTorch implementation of our paper "TransCNN-HAE: Transformer-CNN Hybrid AutoEncoder for Blind Image Inpainting".
+This repository provides the official PyTorch implementation of our paper "G2LFormer:Global-to-Local Token Mixing Transformer for Blind Image Inpainting and Beyond".
 
-Our paper can be found in https://dl.acm.org/doi/pdf/10.1145/3503161.3547848
 
 ## Prerequisites
 
@@ -41,15 +40,4 @@ The model is automatically saved every 10,000 iterations, please rename the file
 python test.py --path=$configpath$ 
 
 For example: python test.py --path=./checkpoints/FFHQ/
-```
-
-## Citing
-```
-@inproceedings{10.1145/3503161.3547848,
-author = {Zhao, Haoru and Gu, Zhaorui and Zheng, Bing and Zheng, Haiyong},
-title = {TransCNN-HAE: Transformer-CNN Hybrid AutoEncoder for Blind Image Inpainting},
-booktitle = {ACM MM},
-year = {2022}
-} 
-
 ```

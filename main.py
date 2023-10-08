@@ -6,7 +6,7 @@ import torch
 import argparse
 from shutil import copyfile
 from src.config import Config
-from src.TransCNN_HAE import TransCNN_HAE
+from src.TransCNN_HAE_plus import TransCNN_HAE_plus
 
 def main(mode=None):
     

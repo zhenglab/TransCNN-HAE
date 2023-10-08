@@ -12,7 +12,7 @@ import torch.nn.functional as F
 
 from .metrics import PSNR
 
-class TransCNN_HAE():
+class TransCNN_HAE_plus():
     def __init__(self, config):
         self.config = config
         self.model_name = 'Network'
@@ -201,11 +201,12 @@ class TransCNN_HAE():
         ]
 
         self.log_sample(logs)
-       
+
+
         # draw sample image
         image_per_row = 1
         images = stitch_images(
-            self.postprocess_re(pdata),   
+            self.postprocess_re(pdata),
             self.postprocess_re(output),
             self.postprocess_re(data),
             img_per_row = image_per_row
