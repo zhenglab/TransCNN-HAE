@@ -49,6 +49,7 @@ For example: python test.py --path=./checkpoints/FFHQ/
 author = {Zhao, Haoru and Gu, Zhaorui and Zheng, Bing and Zheng, Haiyong},
 title = {TransCNN-HAE: Transformer-CNN Hybrid AutoEncoder for Blind Image Inpainting},
 booktitle = {ACM MM},
+pages={6813--6821},
 year = {2022}
 } 
 
