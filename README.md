@@ -1,6 +1,5 @@
-# TransCNN-HAE+
-
-This repository provides the official PyTorch implementation of our paper "G2LFormer:Global-to-Local Token Mixing Transformer for Blind Image Inpainting and Beyond".
+# G2LFormer: Global-to-Local Token Mixing Transformer for Blind Image Inpainting and Beyond
+Haoru Zhao*, Zonghui Guo*, Shishi Qiao, Zhaorui Gu, Bing Zheng, Junyu Dong, Haiyong Zheng<br>
 
 Here we provide the PyTorch implementation of our latest version, if you require the code of our previous ACM MM version (**["TransCNN-HAE: Transformer-CNN Hybrid AutoEncoder for Blind Image Inpainting"](https://dl.acm.org/doi/pdf/10.1145/3503161.3547848)**), please click the **[released version](https://github.com/zhenglab/TransCNN-HAE/releases/tag/v1.0)**.
 
