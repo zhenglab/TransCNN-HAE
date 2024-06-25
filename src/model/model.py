@@ -44,7 +44,7 @@ class Network(BaseModel):
     def __init__(self, config):
         super(Network, self).__init__('Network', config)
         
-        g = TransCNN(config)
+        g = TransCNN_Plus(config)
 
         l1_loss = nn.L1Loss()
         content_loss = PerceptualLoss()

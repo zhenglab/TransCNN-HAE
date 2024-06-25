@@ -29,6 +29,7 @@ class Dataset(torch.utils.data.Dataset):
         self.augment = augment
         self.training = training
         self.coin = torch.rand(1)[0]
+
         self.data_file = getFileList(input_flist)
         self.noise_file = getFileList(noise_flist)
 
@@ -50,7 +51,7 @@ class Dataset(torch.utils.data.Dataset):
             np.random.shuffle(self.noise_file)
 
         self.mask_type = config.MASK_TYPE
-        if self.mask_type == 'file':
+        if mask_flist is not None:
             self.mask_file = getFileList(mask_flist)
         self.side = config.SIDE
         self.mean = config.MEAN
@@ -93,8 +94,6 @@ class Dataset(torch.utils.data.Dataset):
                 self.mask = generate_rectangle(h=self.input_size, w=self.input_size)
             if self.mask_type == 'irregular':
                 self.mask = Masks(h=self.input_size, w=self.input_size)
-            if  self.mask_type == 'file':
-                self.mask = imread(self.mask_file[index])
             self.coin = torch.rand(1)[0]
         
         self.seq = index
@@ -122,6 +121,7 @@ class Dataset(torch.utils.data.Dataset):
         mask_soft = torch.squeeze(mask_soft, dim=0)
 
         coin = self.coin
+
         if coin > 0.5:
             mask_used = mask_soft
         else:
@@ -159,13 +159,10 @@ class Dataset(torch.utils.data.Dataset):
             mask_tensor = self.mask_tensor(mask)
             mask_used = self.priority_mask(1 - mask_tensor) + mask_tensor
             mask_used = torch.squeeze(mask_used, dim=0)
-            
-        if self.mask_type == 'file':
-            mask = imread(self.mask_file[index])
-            mask = cv2.resize(mask, (self.input_size, self.input_size))
-            mask_tensor = self.mask_tensor(mask)
+        else:
+            mask_used = imread(self.mask_file[index])
+            mask_tensor = self.mask_tensor(mask_used)
             mask_used = mask_tensor
-        
 
         data = self.to_tensor(data)
         noise = self.to_tensor(noise)

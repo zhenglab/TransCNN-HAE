@@ -6,7 +6,7 @@ import torch
 import argparse
 from shutil import copyfile
 from src.config import Config
-from src.TransCNN_HAE import TransCNN_HAE
+from src.TransCNN_HAE_plus import TransCNN_HAE_PLUS
 
 def main(mode=None):
     
@@ -34,7 +34,7 @@ def main(mode=None):
     np.random.seed(config.SEED)
     random.seed(config.SEED)
 
-    model = TransCNN_HAE(config)
+    model = TransCNN_HAE_PLUS(config)
 
     model.load()
 
@@ -49,12 +49,12 @@ def main(mode=None):
 def load_config(mode=None):
 
     parser = argparse.ArgumentParser()
-    parser.add_argument('--path', '--checkpoints', type=str, default='./checkpoints', help='model checkpoints path (default: ./checkpoints)')
+    parser.add_argument('--path', '--checkpoints', type=str, default='./checkpoints', help='model checkpoints path (default: ./checkpoints/config.yml)')
     parser.add_argument('--valiter', type=int, default=0, help='the iterator of val')
     parser.add_argument('--local_rank', type=int, default=-1)
 
     args = parser.parse_args()
-    config_path = os.path.join(args.path, 'config.yml')
+    config_path = os.path.join(args.path)
 
     # load config file
     config = Config(config_path)

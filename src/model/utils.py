@@ -11,7 +11,6 @@ import scipy.stats as st
 import matplotlib.pyplot as plt
 from PIL import Image, ImageDraw
 from skimage.color import rgb2gray, gray2rgb
-from skimage import util
 
 def create_dir(dir):
     if not os.path.exists(dir):

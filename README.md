@@ -1,8 +1,8 @@
-# TransCNN-HAE
+# TransCNN-HAE+
 
-This repository provides the official PyTorch implementation of our paper "TransCNN-HAE: Transformer-CNN Hybrid AutoEncoder for Blind Image Inpainting".
+This repository provides the official PyTorch implementation of our paper "G2LFormer:Global-to-Local Token Mixing Transformer for Blind Image Inpainting and Beyond".
 
-Our paper can be found in https://dl.acm.org/doi/pdf/10.1145/3503161.3547848
+Here we provide the PyTorch implementation of our latest version, if you require the code of our previous ACM MM version (**["TransCNN-HAE: Transformer-CNN Hybrid AutoEncoder for Blind Image Inpainting"](https://dl.acm.org/doi/pdf/10.1145/3503161.3547848)**), please click the **[released version](https://github.com/zhenglab/TransCNN-HAE/releases/tag/v1.0)**.
 
 ## Prerequisites
 
@@ -26,31 +26,34 @@ cd TransCNN-HAE
 
 ### Training
 
-Please change the pathes to your dataset path in `datasets` folder.
+- Train our TransCNN-HAE+:
 
 ```
-python train.py --path=$configpath$
+python train.py --path=./checkpoints/config.yml
+```
 
-For example: python train.py --path=./checkpoints/FFHQ/
+- Train our TransCNN-HAE+wCIA:
+
+```
+python train.py --path=./checkpoints/configwithCIA.yml
 ```
 
 ### Testing
 
 The model is automatically saved every 10,000 iterations, please rename the file `g.pth_$iter_number$` to `g.pth` and then run testing command.
-```
-python test.py --path=$configpath$ 
 
-For example: python test.py --path=./checkpoints/FFHQ/
-```
-
-## Citing
-```
-@inproceedings{10.1145/3503161.3547848,
-author = {Zhao, Haoru and Gu, Zhaorui and Zheng, Bing and Zheng, Haiyong},
-title = {TransCNN-HAE: Transformer-CNN Hybrid AutoEncoder for Blind Image Inpainting},
-booktitle = {ACM MM},
-pages={6813--6821},
-year = {2022}
-} 
+- Test our TransCNN-HAE+:
 
 ```
+python test.py --path=./checkpoints/config.yml
+```
+
+- Test our TransCNN-HAE+wCIA:
+
+```
+python test.py --path=./checkpoints/configwithCIA.yml
+```
+
+### Pre-trained Models
+
+We will release our pre-trained models soon.

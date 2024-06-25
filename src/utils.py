@@ -6,6 +6,7 @@ import random
 import numpy as np
 import scipy
 import torch
+from skimage import util
 import torch.nn.functional as FF
 import scipy.stats as st
 import matplotlib.pyplot as plt

@@ -38,16 +38,16 @@ class BaseNetwork(nn.Module):
 
         self.apply(init_func)
 
-class TransCNN(nn.Module):
+class TransCNN_Plus(nn.Module):
     def __init__(self, config):
-        super(TransCNN, self).__init__()
+        super(TransCNN_Plus, self).__init__()
         dim = 256
         self.config = config
         self.patch_to_embedding = nn.Sequential(
             Rearrange('b c (h p1) (w p2) -> b (h w) (p1 p2 c)', p1 = 4, p2 = 4),
             nn.Linear(4*4*3, dim)
         )
-        self.transformer_enc = transformer.TransformerEncoders(dim, nhead=2, num_encoder_layers=9, dim_feedforward=dim*2, activation='gelu')
+        self.transformer_enc = transformer.TransformerEncoders(dim, nhead=2, num_encoder_layers=9, dim_feedforward=dim*2, activation='gelu', withCIA=self.config.WITHCIA)
         self.cnn_dec = CNNDecoder(256, 3, 'ln', 'lrelu', 'reflect')
         
         b = self.config.BATCH_SIZE

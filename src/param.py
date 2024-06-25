@@ -1,4 +1,4 @@
-from model.networks import HTGenerator
+from model.networks import TransCNN_Plus
 from thop import profile
 # from thop import profile
 import os
@@ -7,12 +7,12 @@ from config import Config
 import torch
 os.environ['CUDA_VISIBLE_DEVICES'] = '0'
 
-config_path = os.path.join('/data2/zhaohaoru/code/blind_trans/checkpoints/ffhq_0209_kernal35', 'config.yml')
+config_path = os.path.join('/checkpoints/', 'config.yml')
 
 # load config file
 config = Config(config_path)
 
-model = HTGenerator(config)
+model = TransCNN_Plus(config)
 
 input = torch.randn(1, 3, 256, 256)
 flops, params = profile(model, inputs=(input,))
