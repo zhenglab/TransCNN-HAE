@@ -307,23 +307,34 @@ class Local_Mixing(nn.Module):
 
     def __init__(self, dim):
         super().__init__()
+        
         self.softmax = nn.Softmax(dim=-1) #
-        self.linear = nn.Linear(512, 1, bias=False)
-        self._norm_fact = 1 / math.sqrt(dim)
-        self.sigmoid = nn.Sigmoid()
+        self.linear = nn.Linear(dim, 2, bias=False)
+        
     def forward(self, x):
         [B, C, N] = x.shape
-        q = k = v = x
-        matmul = torch.bmm(q.permute(0, 2, 1), k) * self._norm_fact
-        disk = self.softmax(matmul)
-        
-        f_re = torch.bmm(v, disk)
+        q = k = x
+        matmul = torch.bmm(q.permute(0, 2, 1), k) # transpose check
+        q_abs = torch.sqrt(torch.sum(q.pow(2) + 1e-6, dim=1, keepdim=True))
+        k_abs = torch.sqrt(torch.sum(k.pow(2) + 1e-6, dim=1, keepdim=True))
+        abs_matmul = torch.bmm(q_abs.permute(0, 2, 1), k_abs)
+        io_abs = matmul / abs_matmul
 
-        fus = torch.cat((f_re, x), dim=1)
-        weight = self.linear(fus.permute(0, 2, 1))
-        weight = self.sigmoid(weight)
-        # print(weight.shape, f_re.shape)
-        out = f_re * weight.permute(0, 2, 1)
+        f_re = torch.zeros(x.shape).cuda()
+        for i in range(B):
+
+            abs = io_abs[i].fill_diagonal_(0)
+            _map=torch.argmax(abs, dim=1)
+
+            f_re[i, :, :] = x[i, :, _map]
+        
+        fus = x + f_re
+        fus = fus.permute(0, 2, 1)
+        weight = self.linear(fus)
+        weight = self.softmax(weight)
+        weight = weight.permute(0, 2, 1)
+        out = x * weight[:, 0:1, :] + f_re * weight[:, 1:2, :]
+        
         return out, f_re
 
 

@@ -6,6 +6,7 @@ import random
 import numpy as np
 import scipy
 import torch
+from skimage import util
 import torch.nn.functional as FF
 import scipy.stats as st
 import matplotlib.pyplot as plt
@@ -136,8 +137,6 @@ def generate_noise(image, noise_type="gauss"):
         out = util.random_noise(image=image, mode='s&p', clip=True, amount=0.2, salt_vs_pepper=0.5)
 
     return np.uint8(noise)
-
-
 
 def generate_rectangle(h, w):
     mask = np.ones((h, w))
