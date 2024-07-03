@@ -55,4 +55,4 @@ python test.py --path=./checkpoints/configwithCIA.yml
 
 ### Pre-trained Models
 
-We will release our pre-trained models soon.
+- Download pre-trained models from [BaiduCloud](https://pan.baidu.com/s/1PrHhJ-VSPV9v-ojJr0Lm_A?pwd=3w72) (access code: 3w72), and put `g.pth` in the directory `checkpoints`.

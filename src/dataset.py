@@ -33,12 +33,24 @@ class Dataset(torch.utils.data.Dataset):
         self.data_file = getFileList(input_flist)
         self.noise_file = getFileList(noise_flist)
 
+        self.mask_type = config.MASK_TYPE
+        if mask_flist is not None:
+            self.mask_file = getFileList(mask_flist)
+
         if len(self.noise_file) > len(self.data_file):
             self.noise_file = self.noise_file[:len(self.data_file)]
         else:
             t = len(self.data_file) // len(self.noise_file) + 1
             self.noise_file = self.noise_file * t
             self.noise_file = self.noise_file[:len(self.data_file)]
+        
+        if len(self.mask_file) > len(self.data_file):
+            self.mask_file = self.mask_file[:len(self.data_file)]
+        else:
+            t = len(self.data_file) // len(self.mask_file) + 1
+            self.mask_file = self.mask_file * t
+            self.mask_file = self.mask_file[:len(self.data_file)]    
+            
         if noise_aux is not None:
             self.file_aux = getFileList(noise_aux)
             np.random.shuffle(self.file_aux)
@@ -50,9 +62,6 @@ class Dataset(torch.utils.data.Dataset):
             self.noise_file += self.file_aux[:len(self.data_file) - len(self.noise_file)]
             np.random.shuffle(self.noise_file)
 
-        self.mask_type = config.MASK_TYPE
-        if mask_flist is not None:
-            self.mask_file = getFileList(mask_flist)
         self.side = config.SIDE
         self.mean = config.MEAN
         self.std = config.STD
@@ -157,8 +166,16 @@ class Dataset(torch.utils.data.Dataset):
         if self.mask_type == 'freeform':
             mask = free_form_mask(h=self.input_size, w=self.input_size)
             mask_tensor = self.mask_tensor(mask)
-            mask_used = self.priority_mask(1 - mask_tensor) + mask_tensor
-            mask_used = torch.squeeze(mask_used, dim=0)
+            mask_soft = self.priority_mask(1 - mask_tensor) + mask_tensor
+            mask_soft = torch.squeeze(mask_soft, dim=0)
+            
+            coin = self.coin
+    
+            if coin > 0.5:
+                mask_used = mask_soft
+            else:
+                mask_used = mask_tensor
+                
         else:
             mask_used = imread(self.mask_file[index])
             mask_tensor = self.mask_tensor(mask_used)
@@ -187,8 +204,6 @@ class Dataset(torch.utils.data.Dataset):
         mask_used = self.priority_mask(1 - mask_tensor) + mask_tensor
         mask_used = torch.squeeze(mask_used, dim=0)
 
-        data = data / 127.5 - 1
-        noise = noise /127.5 - 1
         data = self.to_tensor(data)
         noise = self.to_tensor(noise)
 
